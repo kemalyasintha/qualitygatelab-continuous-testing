@@ -1,2 +1,3 @@
-# qualitygatelab-continuous-testing
-Continuous quality engineering project demonstrating functional testing, .NET test automation, Playwright, Azure DevOps pipelines, quality gates, Bicep deployments and Application Insights.
+# QualityGateLab — Continuous Testing
+
+In-progress continuous quality engineering lab with .NET 10, xUnit, API integration testing, EF Core, GitHub PRs and Azure DevOps CI. Next: Playwright, Bicep and Application Insights.
