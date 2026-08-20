@@ -1,0 +1,105 @@
+name: $(Date:yyyyMMdd).$(Rev:r)
+
+trigger:
+  batch: true
+  branches:
+    include:
+      - main
+      - feature/*
+
+pr:
+  autoCancel: true
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  buildConfiguration: Release
+  dotnetSdkVersion: 10.x
+  testResultsDirectory: $(Agent.TempDirectory)/test-results
+
+steps:
+  - checkout: self
+    displayName: Checkout source
+    clean: true
+    fetchDepth: 0
+
+  - task: UseDotNet@2
+    displayName: Install .NET SDK
+    inputs:
+      packageType: sdk
+      version: $(dotnetSdkVersion)
+
+  - task: DotNetCoreCLI@2
+    displayName: Restore dependencies
+    inputs:
+      command: restore
+      projects: QualityGateLab.sln
+
+  - task: DotNetCoreCLI@2
+    displayName: Build solution
+    inputs:
+      command: build
+      projects: QualityGateLab.sln
+      arguments: >
+        --configuration $(buildConfiguration)
+        --no-restore
+
+  - script: dotnet tool restore
+    displayName: Restore .NET tools
+
+  - script: |
+      dotnet ef database update \
+        --project src/QualityGateLab.Api \
+        --startup-project src/QualityGateLab.Api \
+        --configuration $(buildConfiguration) \
+        --no-build \
+        --connection "Data Source=$(Agent.TempDirectory)/qualitygatelab-ci.db"
+    displayName: Validate EF Core migrations
+
+  - task: DotNetCoreCLI@2
+    displayName: Run unit tests
+    inputs:
+      command: test
+      projects: tests/QualityGateLab.UnitTests/QualityGateLab.UnitTests.csproj
+      publishTestResults: false
+      arguments: >
+        --configuration $(buildConfiguration)
+        --no-build
+        --collect:"XPlat Code Coverage"
+        --logger "trx;LogFileName=unit-tests.trx"
+        --results-directory $(testResultsDirectory)/unit
+
+  - task: DotNetCoreCLI@2
+    displayName: Run integration tests
+    inputs:
+      command: test
+      projects: tests/QualityGateLab.IntegrationTests/QualityGateLab.IntegrationTests.csproj
+      publishTestResults: false
+      arguments: >
+        --configuration $(buildConfiguration)
+        --no-build
+        --collect:"XPlat Code Coverage"
+        --logger "trx;LogFileName=integration-tests.trx"
+        --results-directory $(testResultsDirectory)/integration
+
+  - task: PublishTestResults@2
+    displayName: Publish test results
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: VSTest
+      testResultsFiles: $(testResultsDirectory)/**/*.trx
+      mergeTestResults: true
+      failTaskOnFailedTests: true
+      failTaskOnMissingResultsFile: true
+      testRunTitle: QualityGateLab automated tests
+
+  - task: PublishCodeCoverageResults@2
+    displayName: Publish code coverage
+    condition: succeededOrFailed()
+    inputs:
+      summaryFileLocation: $(testResultsDirectory)/**/coverage.cobertura.xml
+      failIfCoverageEmpty: true
