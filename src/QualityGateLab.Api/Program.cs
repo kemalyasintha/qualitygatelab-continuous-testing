@@ -1,3 +1,6 @@
+using Microsoft.EntityFrameworkCore;
+using QualityGateLab.Api.Features.Orders.Persistence;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -6,6 +9,14 @@ builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
+var connectionString =
+    builder.Configuration.GetConnectionString("OrdersDatabase")
+    ?? throw new InvalidOperationException(
+        "The OrdersDatabase connection string is missing.");
+
+builder.Services.AddDbContext<OrderDbContext>(options =>
+    options.UseSqlite(connectionString));
+    
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
