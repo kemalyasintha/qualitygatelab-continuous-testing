@@ -16,7 +16,7 @@ var connectionString =
 
 builder.Services.AddDbContext<OrderDbContext>(options =>
     options.UseSqlite(connectionString));
-    
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -38,3 +38,6 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+public partial class Program
+{
+}
