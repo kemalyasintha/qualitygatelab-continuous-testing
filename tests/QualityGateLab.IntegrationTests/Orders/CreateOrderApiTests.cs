@@ -89,6 +89,19 @@ public sealed class CreateOrderApiTests(
         Assert.Equal("Pending", retrievedOrder.Status);
     }
 
+    [Fact]
+    public async Task GetMissingOrder_Returns404()
+    {
+        await factory.ResetDatabaseAsync();
+
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync(
+            $"/api/orders/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
     [Theory]
     [InlineData("invalid-email", "PRODUCT-001", 1)]
     [InlineData("customer@example.com", "", 1)]

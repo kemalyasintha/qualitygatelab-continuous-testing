@@ -19,6 +19,7 @@ pool:
 variables:
   buildConfiguration: Release
   dotnetSdkVersion: 10.x
+  minimumLineCoverage: 70
   testResultsDirectory: $(Agent.TempDirectory)/test-results
 
 steps:
@@ -51,6 +52,9 @@ steps:
   - script: dotnet tool restore
     displayName: Restore .NET tools
 
+  - script: python3 -m unittest discover -s eng/tests -v
+    displayName: Test coverage quality gate
+
   - script: |
       dotnet ef database update \
         --project src/QualityGateLab.Api \
@@ -69,6 +73,7 @@ steps:
       arguments: >
         --configuration $(buildConfiguration)
         --no-build
+        --settings tests/coverage.runsettings
         --collect:"XPlat Code Coverage"
         --logger "trx;LogFileName=unit-tests.trx"
         --results-directory $(testResultsDirectory)/unit
@@ -82,6 +87,7 @@ steps:
       arguments: >
         --configuration $(buildConfiguration)
         --no-build
+        --settings tests/coverage.runsettings
         --collect:"XPlat Code Coverage"
         --logger "trx;LogFileName=integration-tests.trx"
         --results-directory $(testResultsDirectory)/integration
@@ -103,3 +109,37 @@ steps:
     inputs:
       summaryFileLocation: $(testResultsDirectory)/**/coverage.cobertura.xml
       failIfCoverageEmpty: true
+
+  - script: |
+      python3 eng/coverage_gate.py \
+        --reports "$(testResultsDirectory)/**/coverage.cobertura.xml" \
+        --include-package "QualityGateLab.Api" \
+        --threshold "$(minimumLineCoverage)"
+    displayName: Enforce aggregate line coverage
+
+  - task: DotNetCoreCLI@2
+    displayName: Publish deployable API
+    inputs:
+      command: publish
+      publishWebProjects: false
+      projects: src/QualityGateLab.Api/QualityGateLab.Api.csproj
+      arguments: >
+        --configuration $(buildConfiguration)
+        --no-restore
+        --output $(Build.ArtifactStagingDirectory)/api
+      zipAfterPublish: false
+
+  - task: ArchiveFiles@2
+    displayName: Archive deployable API
+    inputs:
+      rootFolderOrFile: $(Build.ArtifactStagingDirectory)/api
+      includeRootFolder: false
+      archiveType: zip
+      archiveFile: $(Build.ArtifactStagingDirectory)/qualitygatelab-api.zip
+      replaceExistingArchive: true
+
+  - task: PublishPipelineArtifact@1
+    displayName: Publish API artifact
+    inputs:
+      targetPath: $(Build.ArtifactStagingDirectory)/qualitygatelab-api.zip
+      artifact: qualitygatelab-api

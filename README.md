@@ -20,6 +20,8 @@ The project currently demonstrates .NET 10, xUnit, API integration testing, EF C
 * Azure Boards work-item traceability using `AB#` references
 * Azure DevOps YAML continuous integration pipeline
 * Automated test-result and code-coverage publishing
+* Aggregate line-coverage quality gate
+* Deployable API pipeline artifact
 
 ## Architecture
 
@@ -34,8 +36,28 @@ flowchart TD
     GitHub["GitHub pull request"] --> Pipeline["Azure DevOps pipeline"]
     Pipeline --> Build["Restore and build"]
     Build --> Tests["Unit and integration tests"]
-    Tests --> Results["Test results and coverage"]
+    Tests --> Gate["Coverage threshold"]
+    Gate --> Results["Results and API artifact"]
 ```
+
+The diagram above shows the currently implemented CI workflow. Azure deployment is intentionally identified as planned work until the infrastructure and deployment stages are implemented and verified.
+
+## Database strategy
+
+### Current development and testing
+
+SQLite is used for local development and automated integration testing. This keeps the repository easy to clone and run without provisioning an external database. Integration tests use isolated SQLite databases so persistence behaviour can be verified without sharing state between test runs.
+
+### Planned production environment
+
+The planned Azure deployment will use Azure SQL Database as the production data store while retaining SQLite for local development and tests. The production implementation will include:
+
+* The EF Core SQL Server provider selected through environment-specific configuration
+* A separate SQL Server-compatible migration set
+* Azure SQL provisioned through Bicep
+* Passwordless App Service access using managed identity
+* An EF Core migration bundle produced in CI and applied during deployment
+* No database credentials committed to the repository
 
 ## API endpoints
 
@@ -82,6 +104,12 @@ Set-Location qualitygatelab-continuous-testing
 dotnet restore
 ```
 
+Verify the solution before starting the API:
+
+```powershell
+dotnet test --configuration Release
+```
+
 Create or update the local SQLite database:
 
 ```powershell
@@ -111,26 +139,31 @@ The local port may be different on another computer.
 Run the complete test suite:
 
 ```powershell
-dotnet test
+dotnet test --configuration Release
 ```
 
 Run the unit tests:
 
 ```powershell
-dotnet test tests\QualityGateLab.UnitTests
+dotnet test tests\QualityGateLab.UnitTests --configuration Release
 ```
 
 Run the integration tests:
 
 ```powershell
-dotnet test tests\QualityGateLab.IntegrationTests
+dotnet test tests\QualityGateLab.IntegrationTests --configuration Release
 ```
 
 Run all tests with code coverage:
 
 ```powershell
-dotnet test --collect:"XPlat Code Coverage"
+dotnet test --configuration Release `
+  --settings tests\coverage.runsettings `
+  --collect:"XPlat Code Coverage" `
+  --results-directory .\TestResults
 ```
+
+Cobertura reports are written below `TestResults\<test-run-id>\coverage.cobertura.xml`. See [the quality gate policy](docs/quality-gates.md) for the local aggregate-coverage check and the required GitHub ruleset.
 
 The test suite covers:
 
@@ -148,7 +181,7 @@ The test suite covers:
 
 The Azure DevOps YAML pipeline runs for changes to `main`, feature branches and pull requests.
 
-Current CI stages include:
+Current CI controls run in this order:
 
 1. Install the .NET 10 SDK
 2. Restore NuGet packages
@@ -158,9 +191,31 @@ Current CI stages include:
 6. Run unit and integration tests
 7. Collect code coverage
 8. Publish test results and coverage to Azure DevOps
-9. Report the pipeline result as a GitHub pull-request check
+9. Enforce a 70% aggregate line-coverage threshold
+10. Produce and publish a deployable API artifact
+11. Report the pipeline result as a GitHub pull-request check
 
 The first customer-order pull request passed the Azure Pipeline quality check before being merged into `main`.
+
+## Quality gates
+
+The pipeline fails when the Release build, migration validation, automated tests, coverage publication, coverage threshold or API packaging fails. The repository-level merge policy is documented in [the quality gate policy](docs/quality-gates.md) and requires a one-time GitHub ruleset configuration before it can be marked complete.
+
+SonarQube is not required for the initial gate. Static analysis and security scanning can be added later without replacing the existing build, test, migration and coverage controls.
+
+## Planned Azure delivery architecture
+
+The following architecture is planned and is not yet deployed:
+
+```mermaid
+flowchart TD
+    Artifact["Verified API artifact"] --> Bicep["Bicep validation and deployment"]
+    Bicep --> Dev["App Service development"]
+    Dev --> Smoke["API smoke tests"]
+    Smoke --> Approval["Environment approval"]
+    Approval --> Prod["Production deployment"]
+    Prod --> Monitor["Application Insights verification"]
+```
 
 ## Work-item traceability
 
@@ -182,6 +237,8 @@ Git commits include Azure Boards references such as `AB#3`, connecting code chan
 * [x] Implement create-order and get-order endpoints
 * [x] Add Swagger/OpenAPI
 * [x] Add Azure DevOps continuous integration
+* [x] Enforce an aggregate line-coverage threshold in CI
+* [x] Publish a deployable API pipeline artifact
 * [ ] Configure GitHub branch protection and required quality checks
 * [ ] Add Playwright end-to-end tests
 * [ ] Define Azure infrastructure using Bicep

@@ -96,4 +96,37 @@ public sealed class OrderTests
 
         Assert.NotEqual(firstOrder.Id, secondOrder.Id);
     }
+
+    [Fact]
+    public void Constructor_NormalizesInputsAndUsesProvidedTime()
+    {
+        var createdAtUtc = new DateTimeOffset(
+            2026,
+            8,
+            21,
+            12,
+            0,
+            0,
+            TimeSpan.Zero);
+        var timeProvider = new StubTimeProvider(createdAtUtc);
+
+        var order = new Order(
+            "  customer@example.com  ",
+            "  PROD-001  ",
+            2,
+            timeProvider);
+
+        Assert.Equal("customer@example.com", order.CustomerEmail);
+        Assert.Equal("PROD-001", order.ProductId);
+        Assert.Equal(createdAtUtc, order.CreatedAtUtc);
+    }
+
+    private sealed class StubTimeProvider(DateTimeOffset utcNow)
+        : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow()
+        {
+            return utcNow;
+        }
+    }
 }
