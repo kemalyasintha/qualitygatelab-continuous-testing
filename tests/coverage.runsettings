@@ -5,6 +5,7 @@
       <DataCollector friendlyName="XPlat Code Coverage">
         <Configuration>
           <Format>cobertura</Format>
+          <Exclude>[QualityGateLab.Api]Microsoft.AspNetCore.OpenApi.Generated*</Exclude>
           <ExcludeByFile>**/Persistence/Migrations/*.cs</ExcludeByFile>
           <DeterministicReport>true</DeterministicReport>
         </Configuration>
