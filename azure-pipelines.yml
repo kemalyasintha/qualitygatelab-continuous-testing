@@ -73,6 +73,7 @@ steps:
       arguments: >
         --configuration $(buildConfiguration)
         --no-build
+        --settings tests/coverage.runsettings
         --collect:"XPlat Code Coverage"
         --logger "trx;LogFileName=unit-tests.trx"
         --results-directory $(testResultsDirectory)/unit
@@ -86,6 +87,7 @@ steps:
       arguments: >
         --configuration $(buildConfiguration)
         --no-build
+        --settings tests/coverage.runsettings
         --collect:"XPlat Code Coverage"
         --logger "trx;LogFileName=integration-tests.trx"
         --results-directory $(testResultsDirectory)/integration

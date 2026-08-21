@@ -158,6 +158,7 @@ Run all tests with code coverage:
 
 ```powershell
 dotnet test --configuration Release `
+  --settings tests\coverage.runsettings `
   --collect:"XPlat Code Coverage" `
   --results-directory .\TestResults
 ```

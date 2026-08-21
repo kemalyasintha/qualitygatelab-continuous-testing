@@ -15,6 +15,8 @@ The pipeline fails when any of these conditions occurs:
 
 The aggregate coverage calculation merges the unit and integration Cobertura reports by source file and line. It selects the `QualityGateLab.Api` package and excludes the test-project packages. A line is treated as covered when at least one test suite executes it, which prevents the same application line from being counted twice.
 
+EF Core migration, designer and model-snapshot files are generated deployment artifacts. They are excluded through `tests/coverage.runsettings` because migration correctness is enforced separately by creating a clean database in the pipeline. Hand-written API, domain, contract, startup and persistence-configuration code remains inside the coverage gate.
+
 ## Required GitHub ruleset
 
 Configure this once in **Repository settings → Rules → Rulesets → New branch ruleset**:
@@ -38,6 +40,7 @@ Run the same check locally after collecting coverage:
 
 ```powershell
 dotnet test --configuration Release `
+  --settings tests\coverage.runsettings `
   --collect:"XPlat Code Coverage" `
   --results-directory .\TestResults
 
