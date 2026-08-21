@@ -13,7 +13,7 @@ The pipeline fails when any of these conditions occurs:
 * The aggregate line coverage is below the configured threshold.
 * The deployable API package cannot be produced.
 
-The aggregate coverage calculation merges the unit and integration Cobertura reports by source file and line. It measures application code under `src/QualityGateLab.Api` and excludes the test projects. A line is treated as covered when at least one test suite executes it, which prevents the same application line from being counted twice.
+The aggregate coverage calculation merges the unit and integration Cobertura reports by source file and line. It selects the `QualityGateLab.Api` package and excludes the test-project packages. A line is treated as covered when at least one test suite executes it, which prevents the same application line from being counted twice.
 
 ## Required GitHub ruleset
 
@@ -43,7 +43,7 @@ dotnet test --configuration Release `
 
 python eng\coverage_gate.py `
   --reports ".\TestResults\**\coverage.cobertura.xml" `
-  --include-prefix "src/QualityGateLab.Api" `
+  --include-package "QualityGateLab.Api" `
   --threshold 70
 ```
 

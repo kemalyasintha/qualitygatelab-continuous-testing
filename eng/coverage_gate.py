@@ -28,7 +28,9 @@ def resolve_reports(patterns: Iterable[str]) -> list[Path]:
 
 
 def aggregate_line_coverage(
-    report_paths: Iterable[Path], include_prefixes: Iterable[str] = ()
+    report_paths: Iterable[Path],
+    include_prefixes: Iterable[str] = (),
+    include_packages: Iterable[str] = (),
 ) -> tuple[int, int]:
     """Combine reports by source file and line, counting a line covered if any test hit it."""
 
@@ -36,33 +38,40 @@ def aggregate_line_coverage(
     normalized_prefixes = tuple(
         prefix.replace("\\", "/").strip("/") for prefix in include_prefixes
     )
+    normalized_packages = tuple(package.strip() for package in include_packages)
 
     for report_path in report_paths:
         root = ET.parse(report_path).getroot()
 
-        for class_element in root.findall(".//class"):
-            filename = class_element.get("filename")
-            if not filename:
+        for package_element in root.findall(".//package"):
+            package_name = package_element.get("name", "")
+
+            if normalized_packages and package_name not in normalized_packages:
                 continue
 
-            normalized_filename = filename.replace("\\", "/")
-            comparable_filename = normalized_filename.strip("/")
-
-            if normalized_prefixes and not any(
-                comparable_filename.startswith(prefix)
-                or f"/{prefix}/" in f"/{comparable_filename}/"
-                for prefix in normalized_prefixes
-            ):
-                continue
-
-            for line_element in class_element.findall("./lines/line"):
-                line_number = line_element.get("number")
-                if line_number is None:
+            for class_element in package_element.findall("./classes/class"):
+                filename = class_element.get("filename")
+                if not filename:
                     continue
 
-                key = (normalized_filename, int(line_number))
-                hits = int(line_element.get("hits", "0"))
-                line_hits[key] = max(line_hits.get(key, 0), hits)
+                normalized_filename = filename.replace("\\", "/")
+                comparable_filename = normalized_filename.strip("/")
+
+                if normalized_prefixes and not any(
+                    comparable_filename.startswith(prefix)
+                    or f"/{prefix}/" in f"/{comparable_filename}/"
+                    for prefix in normalized_prefixes
+                ):
+                    continue
+
+                for line_element in class_element.findall("./lines/line"):
+                    line_number = line_element.get("number")
+                    if line_number is None:
+                        continue
+
+                    key = (normalized_filename, int(line_number))
+                    hits = int(line_element.get("hits", "0"))
+                    line_hits[key] = max(line_hits.get(key, 0), hits)
 
     total_lines = len(line_hits)
     covered_lines = sum(1 for hits in line_hits.values() if hits > 0)
@@ -101,6 +110,15 @@ def parse_args() -> argparse.Namespace:
             "Repeat the option to include more than one prefix."
         ),
     )
+    parser.add_argument(
+        "--include-package",
+        action="append",
+        default=[],
+        help=(
+            "Only include the named Cobertura package. Repeat the option "
+            "to include more than one package."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -114,7 +132,7 @@ def main() -> int:
 
     try:
         covered_lines, total_lines = aggregate_line_coverage(
-            report_paths, args.include_prefix
+            report_paths, args.include_prefix, args.include_package
         )
         percentage = coverage_percentage(covered_lines, total_lines)
     except (ET.ParseError, OSError, ValueError) as error:

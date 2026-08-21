@@ -111,7 +111,7 @@ steps:
   - script: |
       python3 eng/coverage_gate.py \
         --reports "$(testResultsDirectory)/**/coverage.cobertura.xml" \
-        --include-prefix "src/QualityGateLab.Api" \
+        --include-package "QualityGateLab.Api" \
         --threshold "$(minimumLineCoverage)"
     displayName: Enforce aggregate line coverage
 

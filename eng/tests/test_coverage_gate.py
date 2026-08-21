@@ -96,6 +96,26 @@ class CoverageGateTests(unittest.TestCase):
             self.assertEqual(1, covered)
             self.assertEqual(2, total)
 
+    def test_aggregate_can_select_the_application_package(self) -> None:
+        test_package = REPORT_ONE.replace(
+            'package name="QualityGateLab.Api"',
+            'package name="QualityGateLab.UnitTests"',
+        ).replace('filename="src/Order.cs"', 'filename="Orders/OrderTests.cs"')
+
+        with TemporaryDirectory() as directory:
+            application_report = Path(directory) / "application.cobertura.xml"
+            test_report = Path(directory) / "tests.cobertura.xml"
+            application_report.write_text(REPORT_ONE, encoding="utf-8")
+            test_report.write_text(test_package, encoding="utf-8")
+
+            covered, total = aggregate_line_coverage(
+                [application_report, test_report],
+                include_packages=["QualityGateLab.Api"],
+            )
+
+            self.assertEqual(1, covered)
+            self.assertEqual(2, total)
+
 
 if __name__ == "__main__":
     unittest.main()
