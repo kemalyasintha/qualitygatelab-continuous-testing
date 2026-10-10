@@ -52,8 +52,8 @@ steps:
   - script: dotnet tool restore
     displayName: Restore .NET tools
 
-  - script: python3 -m unittest discover -s eng/tests -v
-    displayName: Test coverage quality gate
+  - script: python3 eng/run_uat.py --output $(testResultsDirectory)/uat/gate-uat.xml
+    displayName: Run gate acceptance tests and record UAT results
 
   - script: |
       dotnet ef database update \
@@ -116,6 +116,39 @@ steps:
         --include-package "QualityGateLab.Api" \
         --threshold "$(minimumLineCoverage)"
     displayName: Enforce aggregate line coverage
+
+  - task: PublishTestResults@2
+    displayName: Publish gate UAT results
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: JUnit
+      testResultsFiles: $(testResultsDirectory)/uat/gate-uat.xml
+      failTaskOnFailedTests: true
+      failTaskOnMissingResultsFile: true
+      testRunTitle: Release evidence gate acceptance
+
+  - script: |
+      python3 eng/evidence_gate.py build \
+        --record compliance/change.json \
+        --source-revision "$(Build.SourceVersion)" \
+        --run-id "azure-$(Build.BuildId)" \
+        --unit-reports "$(testResultsDirectory)/unit/**/*.trx" \
+        --integration-reports "$(testResultsDirectory)/integration/**/*.trx" \
+        --coverage-reports "$(testResultsDirectory)/**/coverage.cobertura.xml" \
+        --uat-reports "$(testResultsDirectory)/uat/gate-uat.xml" \
+        --threshold "$(minimumLineCoverage)" \
+        --output "$(testResultsDirectory)/release-evidence"
+      python3 eng/evidence_gate.py verify \
+        --source-revision "$(Build.SourceVersion)" \
+        --output "$(testResultsDirectory)/release-evidence"
+    displayName: Require complete release evidence before packaging
+
+  - task: PublishPipelineArtifact@1
+    displayName: Retain test and release evidence
+    condition: succeededOrFailed()
+    inputs:
+      targetPath: $(testResultsDirectory)
+      artifact: qualitygatelab-release-evidence
 
   - task: DotNetCoreCLI@2
     displayName: Publish deployable API

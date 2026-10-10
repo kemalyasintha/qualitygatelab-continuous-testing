@@ -1,0 +1,39 @@
+{
+  "scope": "portfolio-demonstration",
+  "change_id": "QGL-CHG-001",
+  "summary": "Introduce traceable release evidence validation before API packaging",
+  "owner": "portfolio-author",
+  "reviewer": "portfolio-self-review",
+  "review_status": "accepted",
+  "reviewed_at": "2026-10-10",
+  "risk": "Incorrect gate logic can accept incomplete evidence or block valid builds",
+  "rollback": "Revert the gate change through a reviewed PR; preserve the failed evidence bundle for investigation. Do not lower the coverage threshold to bypass a failure.",
+  "acceptance_cases": [
+    {
+      "id": "UAT-01",
+      "requirement": "Complete passing reports produce a source-linked evidence bundle",
+      "test": "eng.tests.test_evidence_gate.EvidenceGateTests.test_complete_bundle_passes"
+    },
+    {
+      "id": "UAT-02",
+      "requirement": "Missing mandatory evidence blocks validation",
+      "test": "eng.tests.test_evidence_gate.EvidenceGateTests.test_missing_category_fails"
+    },
+    {
+      "id": "UAT-03",
+      "requirement": "An unresolved high-severity finding blocks validation",
+      "test": "eng.tests.test_evidence_gate.EvidenceGateTests.test_open_high_finding_fails"
+    },
+    {
+      "id": "UAT-04",
+      "requirement": "An expired exception blocks validation",
+      "test": "eng.tests.test_evidence_gate.EvidenceGateTests.test_expired_exception_fails"
+    },
+    {
+      "id": "UAT-05",
+      "requirement": "Modified evidence fails hash verification",
+      "test": "eng.tests.test_evidence_gate.EvidenceGateTests.test_tampered_evidence_fails"
+    }
+  ],
+  "security_findings": []
+}
