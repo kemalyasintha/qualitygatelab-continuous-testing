@@ -6,6 +6,8 @@ The project currently demonstrates .NET 10, xUnit, API integration testing, EF C
 
 ## Current implementation
 
+Release evidence validation now links a change record to actual .NET tests, coverage and automated gate acceptance results before packaging. It generates hashed evidence manifests and rejects missing evidence, unresolved high/critical findings, overdue findings and expired exceptions. See [the workflow, UAT cases and local commands](docs/release-evidence.md). Recorded portfolio review decisions are not authenticated production approvals, and the project does not perform vulnerability scanning or production deployment.
+
 * ASP.NET Core customer-order REST API
 * Test-first order domain model
 * Required-field and email validation

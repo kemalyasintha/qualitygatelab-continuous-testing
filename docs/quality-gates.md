@@ -12,6 +12,10 @@ The pipeline fails when any of these conditions occurs:
 * Test results or coverage reports are missing.
 * The aggregate line coverage is below the configured threshold.
 * The deployable API package cannot be produced.
+* Required release evidence or named UAT acceptance results are missing or invalid.
+* A recorded high/critical finding remains unresolved, a lower-severity finding is overdue, or a recorded exception has expired.
+
+See [release evidence and acceptance validation](release-evidence.md) for report validation, findings policy and limitations. The evidence gate runs before API packaging in Azure DevOps and GitHub Actions.
 
 The aggregate coverage calculation merges the unit and integration Cobertura reports by source file and line. It selects the `QualityGateLab.Api` package and excludes the test-project packages. A line is treated as covered when at least one test suite executes it, which prevents the same application line from being counted twice.
 
@@ -25,6 +29,7 @@ Configure this once in **Repository settings → Rules → Rulesets → New bran
 2. Target the default branch (`main`).
 3. Require a pull request before merging.
 4. Require the Azure Pipeline status check `kemalyasintha.qualitygatelab-continuous-testing`.
+   Also require `Validate release evidence` after its first successful GitHub Actions run.
 5. Require the branch to be current before merging.
 6. Require conversation resolution.
 7. Block force pushes and branch deletion.

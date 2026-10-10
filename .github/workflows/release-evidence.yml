@@ -1,0 +1,63 @@
+name: Release Evidence Validation
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-evidence:
+    name: Validate release evidence
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Run gate acceptance tests
+        run: python eng/run_uat.py --output artifacts/test-results/uat/gate-uat.xml
+      - name: Restore and build
+        run: |
+          dotnet restore QualityGateLab.sln
+          dotnet build QualityGateLab.sln --configuration Release --no-restore
+          dotnet tool restore
+      - name: Validate migrations
+        run: dotnet ef database update --project src/QualityGateLab.Api --startup-project src/QualityGateLab.Api --configuration Release --no-build --connection "Data Source=${RUNNER_TEMP}/qualitygatelab-ci.db"
+      - name: Run unit tests
+        run: dotnet test tests/QualityGateLab.UnitTests --configuration Release --no-build --settings tests/coverage.runsettings --collect:"XPlat Code Coverage" --logger "trx;LogFileName=unit-tests.trx" --results-directory artifacts/test-results/unit
+      - name: Run integration tests
+        run: dotnet test tests/QualityGateLab.IntegrationTests --configuration Release --no-build --settings tests/coverage.runsettings --collect:"XPlat Code Coverage" --logger "trx;LogFileName=integration-tests.trx" --results-directory artifacts/test-results/integration
+      - name: Enforce coverage threshold
+        run: python eng/coverage_gate.py --reports "artifacts/test-results/**/coverage.cobertura.xml" --include-package QualityGateLab.Api --threshold 70
+      - name: Build and verify release evidence
+        run: |
+          python eng/evidence_gate.py build \
+            --record compliance/change.json \
+            --source-revision "$GITHUB_SHA" \
+            --run-id "github-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --unit-reports "artifacts/test-results/unit/**/*.trx" \
+            --integration-reports "artifacts/test-results/integration/**/*.trx" \
+            --coverage-reports "artifacts/test-results/**/coverage.cobertura.xml" \
+            --uat-reports "artifacts/test-results/uat/gate-uat.xml" \
+            --threshold 70 --output artifacts/release-evidence
+          python eng/evidence_gate.py verify --source-revision "$GITHUB_SHA" --output artifacts/release-evidence
+      - name: Package only after evidence validation
+        run: dotnet publish src/QualityGateLab.Api --configuration Release --no-build --output artifacts/api
+      - name: Retain test results and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-evidence-${{ github.run_id }}
+          path: |
+            artifacts/test-results/
+            artifacts/release-evidence/
+          if-no-files-found: error
+          retention-days: 14
